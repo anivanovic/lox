@@ -1,5 +1,6 @@
 package com.github.anivanovic.jezik;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class Parser {
@@ -12,16 +13,89 @@ public class Parser {
         this.tokens = tokens;
     }
 
-    Expr parse() {
-        try {
-            return expression();
+    List<Stmt> parse() {
+        List<Stmt> statements = new ArrayList<>();
+        while (!isAtEnd()) {
+            statements.add(declaration());
+        }
+
+        return statements;
+    }
+
+    private Stmt declaration() {
+        try{
+            if (match(TokenType.VAR)) return varStatement();
+            return statement();
         } catch (ParseError e) {
+            synchronize();
             return null;
         }
+
+
+    }
+
+    private Stmt varStatement() {
+        Token name = consume(TokenType.IDENTIFIER, "Expect variable name.");
+        Expr initializer = null;
+        if (match(TokenType.EQUAL)) {
+            initializer = expression();
+        }
+
+        consume(TokenType.SEMICOLON, "Expect ';' after variable declaration.");
+        return new Stmt.Var(name, initializer);
+    }
+
+    private Stmt statement() {
+        if (match(TokenType.PRINT)) {
+            return printStatement();
+        }
+        if (match(TokenType.LEFT_BRACE)) return blockStatement();
+
+        return expressionStatement();
+    }
+
+    private Stmt blockStatement() {
+        List<Stmt> statements = new ArrayList<>();
+
+        while (!check(TokenType.RIGHT_BRACE) && !isAtEnd()) {
+            statements.add(declaration());
+        }
+
+        consume(TokenType.RIGHT_BRACE, "Expected '}' after block.");
+        return new Stmt.Block(statements);
+    }
+
+    private Stmt printStatement() {
+        Stmt.Print print = new Stmt.Print(expression());
+        consume(TokenType.SEMICOLON, "Expect ';' after expression.");
+        return print;
+    }
+
+    private Stmt expressionStatement() {
+        Stmt.Expression exprStmt = new Stmt.Expression(expression());
+        consume(TokenType.SEMICOLON, "Expect ';' after expression.");
+        return exprStmt;
     }
 
     private Expr expression() {
-        return equality();
+        return assignment();
+    }
+
+    private Expr assignment() {
+        Expr expr = equality();
+
+        if (match(TokenType.EQUAL)) {
+            Token equal = previous();
+            Expr val = assignment();
+
+            if (expr instanceof Expr.Variable) {
+                return new Expr.Assign(((Expr.Variable) expr).name, val);
+            }
+
+            error(equal, "Invalid assignment target.");
+        }
+
+        return expr;
     }
 
     private Expr equality() {
@@ -90,6 +164,10 @@ public class Parser {
             return new Expr.Grouping(expr);
         }
 
+        if (match(TokenType.IDENTIFIER)) {
+            return new Expr.Variable(previous());
+        }
+
         throw error(peek(), "Expect expression.");
     }
 
@@ -103,7 +181,7 @@ public class Parser {
         return new ParseError();
     }
 
-    private void syncronize() {
+    private void synchronize() {
         advance();
         while (!isAtEnd()) {
             if (previous().type == TokenType.SEMICOLON) return;
