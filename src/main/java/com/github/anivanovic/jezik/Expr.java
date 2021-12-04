@@ -8,8 +8,10 @@ abstract class Expr {
     R visitGroupingExpr(Grouping expr);
     R visitLiteralExpr(Literal expr);
     R visitUnaryExpr(Unary expr);
+    R visitLogicalExpr(Logical expr);
     R visitVariableExpr(Variable expr);
     R visitAssignExpr(Assign expr);
+    R visitCallExpr(Call expr);
   }
   static class Binary extends Expr {
 
@@ -73,6 +75,24 @@ abstract class Expr {
     }
   }
 
+  static class Logical extends Expr {
+
+    final Expr left;
+    final Token operator;
+    final Expr right;
+
+    Logical(Expr left, Token operator, Expr right) {
+      this.left = left;
+      this.operator = operator;
+      this.right = right;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitLogicalExpr(this);
+    }
+  }
+
   static class Variable extends Expr {
 
     final Token name;
@@ -100,6 +120,24 @@ abstract class Expr {
     @Override
     <R> R accept(Visitor<R> visitor) {
       return visitor.visitAssignExpr(this);
+    }
+  }
+
+  static class Call extends Expr {
+
+    final Expr callee;
+    final Token paren;
+    final List<Expr> args;
+
+    Call(Expr callee, Token paren, List<Expr> args) {
+      this.callee = callee;
+      this.paren = paren;
+      this.args = args;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitCallExpr(this);
     }
   }
 
