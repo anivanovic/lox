@@ -1,11 +1,14 @@
 package com.github.anivanovic.jezik;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   Environment globals = new Environment();
   private Environment environment = globals;
+  private final Map<Expr, Integer> locals = new HashMap<>();
 
   {
     globals.define(new Token(null, "clock", "clock", 0), new LoxCallable() {
@@ -232,13 +235,18 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
   @Override
   public Object visitVariableExpr(Expr.Variable expr) {
-    return environment.get(expr.name);
+    return lookUpVar(expr.name, expr);
   }
 
   @Override
   public Object visitAssignExpr(Expr.Assign expr) {
     Object val = evaluate(expr.value);
-    environment.assign(expr.name, val);
+    Integer dist = locals.get(expr);
+    if (dist != null) {
+      environment.assignAt(dist, expr.name, val);
+    } else {
+      return globals.get(expr.name);
+    }
     return val;
   }
 
@@ -274,5 +282,18 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   public Void visitReturnStmt(Stmt.Return stmt) {
     if (stmt.value == null) return null;
     throw new Return(evaluate(stmt.value));
+  }
+
+  public void resolve(Expr expr, int i) {
+    locals.put(expr, i);
+  }
+
+  private Object lookUpVar(Token name, Expr.Variable expr) {
+    Integer dist = locals.get(expr);
+    if (dist != null) {
+      return environment.getAt(name, dist);
+    } else {
+      return globals.get(name);
+    }
   }
 }
