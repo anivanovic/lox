@@ -2,3 +2,7 @@ build
 .idea
 .gradle
 gradle
+.vscode
+clox
+main.dSYM
+
